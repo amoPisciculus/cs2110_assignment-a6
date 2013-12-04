@@ -24,10 +24,14 @@ public class Butterfly extends AbstractButterfly {
 	private static TileState[][] result = new TileState[SIZE][SIZE];
 	
 	/** An array of booleans to keep track of tiles which have been visited */
-	private static boolean[][] v,vRun;
+	private static boolean[][] v = new boolean[100][100];
+	private static boolean[][] vRun = new boolean[100][100];
 
 	/** Dummy variables to store the current location of the butterfly */
 	private static int row, col;
+	
+	/** Dummy variable to store old TileStates for comparison */
+	private static TileState oldState;
 
 	/** Set the "default" speed we use to be FAST
 	 * This will be changed in the next assignment where power conservation is a concern
@@ -77,20 +81,19 @@ public class Butterfly extends AbstractButterfly {
 	 */
 	private void dfs() {
 		// The actual bounds are r=[-1 1] but we subtract 1 throughout (and add it back in the loop) to exploit Java's faster checking for 0
-		for(int r=-2; r<=0; r++) {
+		for(int r=-2; r<=0; ++r) {
 			// The actual bounds are c=[-1 1] but we subtract 1 throughout (and add it back in the loop) to exploit Java's faster checking for 0
-			for(int c=-2; c<=0; c++) {
+			for(int c=-2; c<=0; ++c) {
 				// Initialize temporary variables for easy calculation
 				// The fancy math normalizes the coordinates from the contiguous map space to Cartesian space
 				// Without this normalization the DFS will fail at edge cases of the map
-				final int curRow = (row+r+1+v.length)%v.length;
-				final int curCol = (col+c+1+v[0].length)%v[0].length;
+				final int curRow = (state.location.row+r+1+v.length)%v.length;
+				final int curCol = (state.location.col+c+1+v[0].length)%v[0].length;
 				
 				// Only fly to tiles which have not been visited (i.e. they are not in the visited array)
 				if (!v[curRow][curCol]) {
-					// Store the butterfly's position before flying
-					final int oldRow = state.location.row;
-					final int oldCol = state.location.col;
+					// Store the current location of the butterfly
+					oldState = state;
 					
 					// Fly in the specified, de-enumerated direction
 					// Here we intentionally use flySafe to avoid the speed penalty of a try-catch block
@@ -106,22 +109,14 @@ public class Butterfly extends AbstractButterfly {
 						// Insert the location of the flower into the hash-map
 						flowerLoc.put(f,state.location);
 					}
-
-					// Get the world coordinates of the butterfly's current position
-					row = state.location.row;
-					col = state.location.col;
 					
 					// Set the location as visited
 					v[curRow][curCol] = true;
 					
 					// If the butterfly's coordinates remain unchanged even after flying, we're in front of an obstacle
-					if (row == oldRow && col == oldCol) {						
-						// Set the obstacle location in the results array as null for use in the run phase
-						result[curRow][curCol] = null;
-						
-					} else {
+					if (!state.location.equals(oldState.location)) {    						
 						// Write the state of the current tile to the correct position in the results array
-						result[row][col] = state;
+						result[curRow][curCol] = state;
 
 						// Push the direction that was flown onto the stack
 						dfsStack.push(dir(r+1,c+1));
@@ -142,10 +137,6 @@ public class Butterfly extends AbstractButterfly {
 		
 		// Update the state variable with information about the current tile
 		refreshState();
-
-		// Get the world coordinates of the butterfly's current position
-		row = state.location.row;
-		col = state.location.col;
 	}
 	
 	/** An instance runs an assisted DFS to collect flowers on the map.
@@ -161,22 +152,22 @@ public class Butterfly extends AbstractButterfly {
 	 */
 	private void dfsCollect(Set<Long>flowerIdMap) {
 		// The actual bounds are r=[-1 1] but we subtract 1 throughout (and add it back in the loop) to exploit Java's faster checking for 0
-		for(int r=-2; r<=0; r++) {
+		for(int r=-2; r<=0; ++r) {
 			// The actual bounds are c=[-1 1] but we subtract 1 throughout (and add it back in the loop) to exploit Java's faster checking for 0
-			for(int c=-2; c<=0; c++) {
+			for(int c=-2; c<=0; ++c) {
 				// Initialize temporary variables for easy calculation
 				// The fancy math normalizes the coordinates from the contiguous map space to Cartesian space
 				// Without this normalization the DFS will fail at edge cases of the map
-				final int curRow = (row+r+1+vRun.length)%vRun.length;
-				final int curCol = (col+c+1+vRun[0].length)%vRun[0].length;
+				final int curRow = (state.location.row+r+1+vRun.length)%vRun.length;
+				final int curCol = (state.location.col+c+1+vRun[0].length)%vRun[0].length;
 
 				// Only consider tiles which have not been visited (i.e. they are not in the visited array)
 				if (!vRun[curRow][curCol]) {
+					// If it's an obstacle, only set the location as visited and nothing else
+					vRun[curRow][curCol] = true;
+					
 					// Lookup the map from the learn phase to check if the tile we're trying to fly to is an obstacle
-					if (result[curRow][curCol]==null) {
-						// If it's an obstacle, only set the location as visited and nothing else
-						vRun[curRow][curCol] = true;
-					} else {
+					if (result[curRow][curCol]!=null) {
 						// Fly in the specified, de-enumerated direction
 						// Unlike in the learn phase we do not need flySafe here because we know where the obstacles are
 						fly(dir(r+1,c+1),s);
@@ -191,10 +182,6 @@ public class Butterfly extends AbstractButterfly {
 						for (Flower f : flowerSet) {
 							if(flowerIdMap.remove(f.getFlowerId())) { collect(f); }
 						}
-
-						// Get the world coordinates of the butterfly's current position
-						row = state.location.row;
-						col = state.location.col;
 
 						// Set the location as visited
 						vRun[curRow][curCol] = true;
@@ -223,10 +210,6 @@ public class Butterfly extends AbstractButterfly {
 
 		// Update the state variable with information about the current tile
 		refreshState();
-
-		// Get the world coordinates of the butterfly's current position
-		row = state.location.row;
-		col = state.location.col;
 	}
 	
 	/**
@@ -319,10 +302,6 @@ public class Butterfly extends AbstractButterfly {
 		
 		// Record the information for the starting tile
 		refreshState();
-
-		// Get the world coordinates of the butterfly's current position
-		row = state.location.row;
-		col = state.location.col;
 		
 		// Collect the flowers on the starting tile that match those in the list
 		for (Flower f : state.getFlowers()) {
@@ -330,7 +309,7 @@ public class Butterfly extends AbstractButterfly {
 		}
 		
 		// Mark the starting tile as visited
-		vRun[row][col] = true;
+		vRun[state.location.row][state.location.col] = true;
 		
 		// Call a depth-first-search to traverse the map and collect the flowers
 		dfsCollect(flowerIdMap);
