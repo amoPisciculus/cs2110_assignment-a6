@@ -5,6 +5,7 @@
 Our objective is to:
 1. Record TileState information during the learn phase
 2. Collect any flowers which match the provided list during the run phase
+
 We wish to do this in shortest overall time possible. While there are four metrics for efficiency (number of turns, learning time, run time and overall time), we expect that by devoting processing time otherwise spent minimizing the number of turns, we obtain better performance as a whole by focusing on algorithm speed.
 
 Performing an optimized shortest-path calculation requires us to perform the following calculations:
@@ -29,8 +30,6 @@ During the run phase, we adopt the same flying scheme as the learn phase DFS, ex
 - The DFS terminates (i.e. the base case) when all flowers have been found, rather than when all tiles have been explored
 For the first point, it is easy to see that by doing so, we reduce both the number of moves, as well as any time spent exploring a tile which would otherwise have thrown an exception. The second point also decreases the number of moves and time spent on exploration, except in the worst-case scenario where the last flower to be collected is the very last tile the DFS explores.
 
-As a precaution, we still set the DFS to terminate if the stack is empty, accounting for a situation in which the butterfly fails to collect all flowers on the list passed to it. 
-
 # Optimization
 
 ## Avoiding try-catch Block Using ```flySafe()``` Instead of ```fly()```
@@ -38,10 +37,12 @@ Using the ```fly()``` method requires a try-catch block to catch any exceptions 
 
 To avoid using a try-catch block while still detecting obstacles, we use the ```flySafe()``` method because it inspects the map directly and will not fly into an obstacle. In penalty, there is a huge power loss, but since power is not implemented, we are immune to that power loss. We compare the butterfly's location before and after the ```flySafe()``` command. If there was no change in location, it means that the butterfly is in front of an obstacle, and we mark it as ```null``` accordingly:
 ```java
-if (!state.location.equals(oldState.location)) { 
+if (!(state.location.row==row && state.location.col==col)) { 
     result[curRow][curCol] = state;
 }
 ```
+
+In the run phase, we can use ```fly()``` directly because the map elucidated in the learn phase allows us to accurately avoid any obstacles. 
 
 ## Conversion of List<Long>flowerIds to Hash-set
 List ```contains()``` and ```remove()``` operations are O(n) time compared to a hash-set, which provides those operations with O(1) time. Since we expect to be checking at every tile for flowers, and there will be more tiles than flowers in the list, we incur an initial O(n) operation converting the list to a hash-set so that all subsequent probes are O(1).
@@ -78,6 +79,8 @@ We resolve the problem by realizing that it is extremely unlikely for a map larg
 ```java
 private final static int SIZE = 100;
 private static TileState[][] result = new TileState[SIZE][SIZE];
+private static boolean[][] v = new boolean[SIZE][SIZE];
+private static boolean[][] vRun = new boolean[SIZE][SIZE];
 ```
 
 ## Exploiting Fast Comparison to 0 in a for-loop
@@ -92,4 +95,12 @@ but we write it as
 for(int r=-2; r<=0; r++) { ... }
 ```
 
+## Final Remarks
+Much has been said about the use of a DFS in the run phase instead of a more savvy solution that minimizes turns while traveling to the flower. While the DFS indeed appears to be "inelegant" from an academic standpoint, we respectfully disagree that it is not the best solution for this problem. In any real world situation, a good, albeit highly complex solution (written in a single file with no chance at modularization) is truly good only if it is maintainable and provides the best outcome for the situation in which it is utilized. 
 
+Our reasoning is simple:
+1. In this release, there is no API enforced energy/time penalty for flying through forests, excessive numbers of turns, use of the ```flySafe()``` command or checking for flowers at every tile in the run phase
+2. The graph is dense, unweighted, and has many cycles
+3. Java does not perform math operations well (compared to other languages). In addition, the map is relatively small. This favors a brute-force algorithm rather than triangulating flowers. 
+
+Based on these three points, our guided decision (rather than just one made out of convenience) was to write a DFS and, as Professor Birman said, "optimize it till the cows come home".
